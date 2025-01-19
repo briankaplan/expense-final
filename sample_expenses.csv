@@ -1,0 +1,6 @@
+transaction_date,post_date,merchant,description,category,type,amount,memo,expensify_category,expense_type,categorization_confidence
+2024-01-15,2024-01-16,AMAZON,Office Supplies,Shopping,Sale,-29.99,Printer paper and ink,Office Supplies,business,1
+2024-01-14,2024-01-15,STARBUCKS,Team Meeting,Food & Drink,Sale,-42.50,Coffee for morning standup,Meals & Entertainment,business,1
+2024-01-13,2024-01-14,UBER,Client Visit,Travel,Sale,-25.75,Transportation to client office,Travel - Taxi,business,1
+2024-01-12,2024-01-13,STAPLES,Office Equipment,Shopping,Sale,-199.99,New monitor for workstation,Office Equipment,business,1
+2024-01-11,2024-01-12,ZOOM,Video Conferencing,Shopping,Sale,-14.99,Monthly subscription,Software subscriptions,business,1 

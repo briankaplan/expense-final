@@ -1,0 +1,176 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 18 18 18;
+    --foreground: 255 255 255;
+    
+    --card: 40 40 40;
+    --card-foreground: 255 255 255;
+    
+    --popover: 40 40 40;
+    --popover-foreground: 255 255 255;
+    
+    --primary: 29 185 84;
+    --primary-foreground: 0 0 0;
+    
+    --secondary: 40 40 40;
+    --secondary-foreground: 255 255 255;
+    
+    --muted: 40 40 40;
+    --muted-foreground: 255 255 255;
+    
+    --accent: 40 40 40;
+    --accent-foreground: 255 255 255;
+    
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
+    
+    --border: 40 40 40;
+    --input: 40 40 40;
+    --ring: 29 185 84;
+    
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+  }
+  h1, h2, h3, h4 {
+    @apply font-semibold tracking-tight;
+  }
+  h1 {
+    @apply text-2xl font-bold;
+  }
+  h2 {
+    @apply text-xl font-semibold;
+  }
+  p {
+    @apply font-medium leading-relaxed;
+  }
+  th {
+    @apply font-semibold;
+  }
+  td {
+    @apply font-medium;
+  }
+  button {
+    @apply font-medium;
+  }
+  input, select, textarea {
+    @apply font-medium;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 14px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted border-4 border-solid border-background rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-secondary;
+}
+
+/* Card hover effect */
+.card-hover {
+  @apply transition-colors duration-200;
+}
+
+.card-hover:hover {
+  @apply bg-secondary;
+}
+
+/* Table styles */
+.table-row {
+  @apply transition-colors duration-200;
+}
+
+.table-row:hover {
+  @apply bg-secondary;
+}
+
+/* Status badges */
+.status-badge {
+  @apply px-2 py-0.5 rounded-full text-xs font-medium inline-flex items-center gap-1;
+}
+
+.status-badge-success {
+  @apply bg-green-900/20 text-green-400 border border-green-500/20;
+}
+
+.status-badge-warning {
+  @apply bg-yellow-900/20 text-yellow-400 border border-yellow-500/20;
+}
+
+.status-badge-error {
+  @apply bg-red-900/20 text-red-400 border border-red-500/20;
+}
+
+/* Loading spinner */
+.loading-spinner {
+  @apply animate-spin rounded-full border-t-2 border-b-2 border-primary;
+}
+
+/* Animations */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Tabs animation */
+.tab-indicator {
+  transition: transform 0.2s ease;
+}
+
+/* Button styles */
+.btn-accent {
+  background-color: rgb(var(--accent-rgb));
+  color: #000;
+  transition: background-color 0.2s ease;
+}
+
+.btn-accent:hover {
+  background-color: rgb(var(--accent-hover-rgb));
+}
+
+/* Utility classes */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Animation utilities */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+} 
