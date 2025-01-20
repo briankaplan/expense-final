@@ -6,18 +6,32 @@ import { ExpenseTracker } from '@/components/ExpenseTracker';
 import BusinessMissingReceiptsImporter from '../components/BusinessMissingReceiptsImporter';
 import ReceiptFinder from '../components/ReceiptFinder';
 import ReceiptViewer from '../components/ReceiptViewer';
-import { AlertTriangle } from 'lucide-react';
+import ReceiptUploader from '../components/ReceiptUploader';
+import { AlertTriangle, Check, X } from 'lucide-react';
 
 const getReceiptUrl = (expense) => {
   if (!expense.receipt_url) return null;
   
   // If it's already a full URL, return it
   if (expense.receipt_url.startsWith('http')) {
+    // For PDFs, ensure we're using https
+    if (expense.receipt_url.toLowerCase().endsWith('.pdf') && expense.receipt_url.startsWith('http://')) {
+      return expense.receipt_url.replace('http://', 'https://');
+    }
     return expense.receipt_url;
   }
   
   // Otherwise, construct the URL using the R2_PUBLIC_URL
-  return `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${expense.receipt_url}`;
+  const baseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.replace(/\/$/, ''); // Remove trailing slash if present
+  const receiptPath = expense.receipt_url.startsWith('/') ? expense.receipt_url.slice(1) : expense.receipt_url;
+  const url = `${baseUrl}/${receiptPath}`;
+  
+  // For PDFs, ensure we're using https
+  if (url.toLowerCase().endsWith('.pdf') && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  
+  return url;
 };
 
 const formatDate = (dateString) => {
@@ -66,6 +80,24 @@ export default function Home() {
   const [isReceiptFinderOpen, setIsReceiptFinderOpen] = useState(false);
   const [missingReceiptExpenses, setMissingReceiptExpenses] = useState([]);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [editValue, setEditValue] = useState('');
+  const [uploadingReceipt, setUploadingReceipt] = useState(null);
+
+  const getViewTitle = () => {
+    switch (activeTab) {
+      case 'all':
+        return 'All Expenses';
+      case 'active':
+        return 'Active Expenses';
+      case 'missing':
+        return 'Missing Receipts';
+      case 'submitted':
+        return 'Submitted Expenses';
+      default:
+        return 'Expenses';
+    }
+  };
 
   useEffect(() => {
     // Load initial expenses
@@ -125,138 +157,226 @@ export default function Home() {
   };
 
   const handleUploadReceipt = (expense) => {
-    setSelectedReceipt(expense);
+    setUploadingReceipt(expense);
+  };
+
+  const handleUploadComplete = async (receiptUrl) => {
+    try {
+      const response = await fetch(`/api/expenses/${uploadingReceipt.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receipt_url: receiptUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update expense');
+      }
+
+      // Refresh expenses list
+      await fetchExpenses();
+      setUploadingReceipt(null);
+    } catch (error) {
+      console.error('Failed to update expense:', error);
+    }
+  };
+
+  const handleStartEdit = (expense) => {
+    setEditingExpense(expense);
+    setEditValue(expense.description || '');
+  };
+
+  const handleSaveDescription = async (expenseId) => {
+    try {
+      const response = await fetch(`/api/expenses/${expenseId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          description: editValue,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update description');
+      }
+
+      // Update local state
+      setExpenses(expenses.map(exp => 
+        exp.id === expenseId 
+          ? { ...exp, description: editValue }
+          : exp
+      ));
+
+      // Clear editing state
+      setEditingExpense(null);
+      setEditValue('');
+    } catch (error) {
+      console.error('Failed to update description:', error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingExpense(null);
+    setEditValue('');
   };
 
   return (
-    <div className="min-h-screen bg-[#121212]">
-      {selectedReceipt && (
-        <ReceiptViewer 
-          expense={{
-            ...selectedReceipt,
-            receipt_url: getReceiptUrl(selectedReceipt)
-          }}
-          onClose={() => setSelectedReceipt(null)} 
-        />
-      )}
-      <div className="flex">
-        <Sidebar 
-          expenses={expenses} 
-          activeTab={activeTab} 
-          onTabChange={setActiveTab} 
-          className="w-64 fixed inset-y-0 left-0 bg-[#1a1a1a] border-r border-white/[0.06]"
-        />
-        <main className="flex-1 ml-64">
-          <div className="p-6">
-            {(activeTab === 'active' || activeTab === 'all') && (
+    <div className="flex h-screen">
+      <Sidebar 
+        expenses={expenses}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        className="w-[280px] shrink-0 border-r border-border"
+      />
+      
+      <main className="main-container">
+        <div className="content-container">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold">{getViewTitle()}</h1>
+            {activeTab === 'missing' && (
+              <button
+                onClick={() => setIsReceiptFinderOpen(true)}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Open Receipt Finder
+              </button>
+            )}
+          </div>
+
+          {selectedReceipt && (
+            <ReceiptViewer 
+              expense={{
+                ...selectedReceipt,
+                receipt_url: getReceiptUrl(selectedReceipt)
+              }}
+              onClose={() => setSelectedReceipt(null)} 
+            />
+          )}
+
+          {activeTab === 'missing' && isReceiptFinderOpen && (
+            <div className="mb-8">
+              <ReceiptFinder
+                onReceiptFound={handleReceiptFound}
+                missingReceiptExpenses={missingReceiptExpenses}
+                onClose={() => setIsReceiptFinderOpen(false)}
+              />
+            </div>
+          )}
+
+          {uploadingReceipt && (
+            <ReceiptUploader
+              expense={uploadingReceipt}
+              onClose={() => setUploadingReceipt(null)}
+              onUploadComplete={handleUploadComplete}
+            />
+          )}
+
+          <div className="table-container">
+            {activeTab === 'missing' ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Merchant</th>
+                    <th>Amount</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Receipt</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {missingReceiptExpenses.map((expense) => (
+                    <tr key={expense.id}>
+                      <td>{formatDate(expense.transaction_date)}</td>
+                      <td>{expense.merchant || '—'}</td>
+                      <td className="text-right">
+                        <span className={expense.amount < 0 ? 'expense-amount-negative' : 'expense-amount-positive'}>
+                          ${Math.abs(expense.amount).toFixed(2)}
+                        </span>
+                      </td>
+                      <td>{expense.category || '—'}</td>
+                      <td className="description">
+                        {editingExpense?.id === expense.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="flex-1 px-2 py-1 text-sm rounded border border-input bg-background"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSaveDescription(expense.id);
+                                } else if (e.key === 'Escape') {
+                                  handleCancelEdit();
+                                }
+                              }}
+                            />
+                            <button
+                              onClick={() => handleSaveDescription(expense.id)}
+                              className="p-1 hover:bg-secondary rounded"
+                            >
+                              <Check className="w-4 h-4 text-success" />
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="p-1 hover:bg-secondary rounded"
+                            >
+                              <X className="w-4 h-4 text-destructive" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleStartEdit(expense)}
+                            className="w-full text-left hover:bg-secondary/50 px-2 py-1 rounded -mx-2"
+                          >
+                            {expense.description || '—'}
+                          </button>
+                        )}
+                      </td>
+                      <td className="text-center">
+                        <span className="status-badge status-badge-error">
+                          <AlertTriangle className="w-3 h-3" />
+                          Missing
+                        </span>
+                      </td>
+                      <td className="text-right">
+                        <button
+                          onClick={() => handleUploadReceipt(expense)}
+                          className="px-3 py-1 bg-primary text-primary-foreground text-sm rounded hover:bg-primary/90 transition-colors"
+                        >
+                          Upload
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
               <ExpenseTracker 
                 activeTab={activeTab}
-                onExpensesChange={(updatedExpenses) => {
-                  setExpenses(updatedExpenses);
-                }}
+                onExpensesChange={setExpenses}
               />
             )}
-
-            {activeTab === 'missing' && (
-              <>
-                {/* Receipt Finder Section */}
-                <div className="mb-8">
-                  {isReceiptFinderOpen ? (
-                    <ReceiptFinder
-                      onReceiptFound={handleReceiptFound}
-                      missingReceiptExpenses={missingReceiptExpenses}
-                      onClose={() => setIsReceiptFinderOpen(false)}
-                    />
-                  ) : (
-                    <button
-                      onClick={() => setIsReceiptFinderOpen(true)}
-                      className="px-4 py-2 bg-[#1DB954] text-white rounded-lg hover:bg-[#1ed760] transition-colors"
-                    >
-                      Open Receipt Finder
-                    </button>
-                  )}
-                </div>
-
-                {/* Missing Receipts List */}
-                <div className="bg-[#1a1a1a] rounded-xl border border-white/[0.06]">
-                  <div className="p-4 border-b border-white/[0.06]">
-                    <h2 className="text-lg font-semibold text-white">Missing Receipts</h2>
-                    <p className="text-sm text-gray-400 mt-1">
-                      {missingReceiptExpenses.length} expenses need receipts
-                    </p>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/[0.06] bg-[#1a1a1a]">
-                          <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Date</th>
-                          <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Merchant</th>
-                          <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Amount</th>
-                          <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Category</th>
-                          <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Description</th>
-                          <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Receipt</th>
-                          <th className="px-6 py-4 text-left text-sm font-medium text-white/60">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.06]">
-                        {missingReceiptExpenses.map((expense) => (
-                          <tr key={expense.id} className="hover:bg-white/[0.02]">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              {formatDate(expense.transaction_date)}
-                            </td>
-                            <td className="px-6 py-4 text-sm">{expense.merchant || '—'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              ${Math.abs(expense.amount).toFixed(2)}
-                            </td>
-                            <td className="px-6 py-4 text-sm">
-                              <div className="flex items-center gap-2">
-                                {expense.category || '—'}
-                                {expense.categorization_confidence < 0.5 && (
-                                  <span title="Low Confidence" className="text-yellow-500">
-                                    <AlertTriangle className="w-4 h-4" />
-                                  </span>
-                                )}
-                              </div>
-                              {expense.category_details && (
-                                <span className="text-xs text-white/40">{expense.category_details}</span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 text-sm">{expense.description || '—'}</td>
-                            <td className="px-6 py-4">
-                              <span className="flex items-center gap-2 text-white/40">
-                                <AlertTriangle className="w-4 h-4" />
-                                Missing
-                              </span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <button
-                                onClick={() => handleUploadReceipt(expense)}
-                                className="px-4 py-2 bg-[#1DB954] text-white rounded-lg hover:bg-[#1ed760] transition-colors text-sm"
-                              >
-                                Upload Receipt
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Import Section */}
-            <div className="mt-8">
-              <BusinessMissingReceiptsImporter onImportComplete={handleImportComplete} />
-              {importComplete && (
-                <div className="mt-4 p-4 bg-green-500/10 text-green-400 rounded-lg">
-                  Import completed successfully! The expenses have been added to the database.
-                </div>
-              )}
-            </div>
           </div>
-        </main>
-      </div>
+
+          {/* Import Section */}
+          <div className="mt-8">
+            <BusinessMissingReceiptsImporter onImportComplete={handleImportComplete} />
+            {importComplete && (
+              <div className="mt-4 p-4 bg-success/10 text-success rounded-lg border border-success/20">
+                Import completed successfully! The expenses have been added to the database.
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   );
 } 

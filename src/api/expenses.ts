@@ -13,32 +13,41 @@ export async function onRequestGet(context: any) {
     const searchTerm = searchParams.get('searchTerm');
 
     let query = `
-      SELECT * FROM expenses 
-      WHERE status = ?
+      SELECT e.*, r.file_key as receipt_key
+      FROM expenses e
+      LEFT JOIN receipts r ON e.receipt_id = r.id
+      WHERE e.status = ?
     `;
     const params: any[] = [status];
 
     if (startDate) {
-      query += ` AND date >= ?`;
+      query += ` AND e.date >= ?`;
       params.push(startDate);
     }
     if (endDate) {
-      query += ` AND date <= ?`;
+      query += ` AND e.date <= ?`;
       params.push(endDate);
     }
     if (category) {
-      query += ` AND category = ?`;
+      query += ` AND e.category = ?`;
       params.push(category);
     }
     if (searchTerm) {
-      query += ` AND (description LIKE ? OR bank_reference LIKE ?)`;
+      query += ` AND (e.description LIKE ? OR e.bank_reference LIKE ?)`;
       params.push(`%${searchTerm}%`, `%${searchTerm}%`);
     }
 
-    query += ` ORDER BY date DESC`;
+    query += ` ORDER BY e.date DESC`;
 
     const result = await env.DB.prepare(query).bind(...params).all();
-    return Response.json({ success: true, results: result.results });
+    
+    // Format the results to include proper receipt URLs
+    const formattedResults = result.results.map(expense => ({
+      ...expense,
+      receipt_url: expense.receipt_key ? `${env.R2_PUBLIC_URL}/${expense.receipt_key}` : null
+    }));
+
+    return Response.json({ success: true, expenses: formattedResults });
   } catch (error) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }

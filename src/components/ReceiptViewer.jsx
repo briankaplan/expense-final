@@ -3,101 +3,62 @@
 import React from 'react';
 import { X, Calendar, Building, Tag, DollarSign, FileText, CheckCircle } from 'lucide-react';
 
-export function ReceiptViewer({ expense, onClose }) {
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-[#282828] rounded-xl shadow-xl w-full max-w-7xl max-h-[90vh] flex">
-        {/* Left Panel - Receipt Image */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Header */}
-          <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">Receipt Details</h2>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-white/60" />
-            </button>
-          </div>
+export default function ReceiptViewer({ expense, onClose }) {
+  const isPDF = expense.receipt_url?.toLowerCase().endsWith('.pdf');
 
-          {/* Receipt Image */}
-          <div className="flex-1 p-4 overflow-auto">
-            {expense.receipt_url ? (
+  return (
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-card rounded-lg shadow-lg w-full max-w-3xl overflow-hidden border border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="text-lg font-semibold">Receipt Viewer</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-secondary rounded-full transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-4">
+          {expense.receipt_url ? (
+            isPDF ? (
+              <iframe
+                src={`${expense.receipt_url}#toolbar=0`}
+                className="w-full h-[600px] rounded border border-border"
+                title="Receipt PDF"
+              />
+            ) : (
               <img
                 src={expense.receipt_url}
                 alt="Receipt"
-                className="max-w-full h-auto mx-auto rounded-lg shadow-lg"
+                className="w-full h-auto rounded"
               />
-            ) : (
-              <div className="flex items-center justify-center h-full text-white/40">
-                No receipt available
-              </div>
             )}
-          </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No receipt available
+            </div>
+          )}
         </div>
 
-        {/* Right Panel - Receipt Details */}
-        <div className="w-96 flex flex-col bg-[#121212]">
-          <div className="p-6 space-y-6">
-            <div className="space-y-1">
-              <h3 className="text-sm font-medium text-white/60">Transaction Details</h3>
-              <div className="space-y-4 mt-3">
-                <div className="flex items-start gap-3">
-                  <Calendar className="w-5 h-5 text-white/40 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-white">Date</p>
-                    <p className="text-sm text-white/60">
-                      {new Date(expense.transaction_date).toLocaleDateString(undefined, {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Building className="w-5 h-5 text-white/40 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-white">Merchant</p>
-                    <p className="text-sm text-white/60">{expense.merchant || '—'}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Tag className="w-5 h-5 text-white/40 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-white">Category</p>
-                    <p className="text-sm text-white/60">{expense.category || '—'}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <DollarSign className="w-5 h-5 text-white/40 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-white">Amount</p>
-                    <p className="text-sm text-white/60">${Math.abs(expense.amount).toFixed(2)}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <FileText className="w-5 h-5 text-white/40 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-white">Description</p>
-                    <p className="text-sm text-white/60">{expense.description || '—'}</p>
-                  </div>
-                </div>
-              </div>
+        <div className="p-4 bg-muted/50 border-t border-border">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Date</p>
+              <p className="font-medium">{expense.transaction_date}</p>
             </div>
-
-            {expense.receipt_url && (
-              <div className="pt-4 border-t border-white/[0.06]">
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle className="w-4 h-4 text-[#1DB954]" />
-                  <span className="text-[#1DB954] font-medium">Receipt verified</span>
-                </div>
-                <p className="mt-1 text-xs text-white/40">
-                  This receipt has been processed and verified by our system.
-                </p>
-              </div>
-            )}
+            <div>
+              <p className="text-muted-foreground">Amount</p>
+              <p className="font-medium">${Math.abs(expense.amount).toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Category</p>
+              <p className="font-medium">{expense.category || '—'}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Description</p>
+              <p className="font-medium">{expense.description || '—'}</p>
+            </div>
           </div>
         </div>
       </div>

@@ -14,7 +14,9 @@ import {
   Upload,
   Trash2,
   XCircle,
-  Archive
+  Archive,
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MobileSearch from './MobileSearch';
@@ -404,6 +406,87 @@ const ExpenseTracker = () => {
     }
   }, [missingReceiptExpenses]);
 
+  const handleStartEdit = (expense) => {
+    setEditingExpense(expense);
+    setEditValue(expense.description || '');
+  };
+
+  const handleSaveDescription = async (expenseId) => {
+    try {
+      const response = await fetch(`/api/expenses/${expenseId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          description: editValue,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update description');
+      }
+
+      // Update local state through parent
+      const updatedExpenses = expenses.map(exp => 
+        exp.id === expenseId 
+          ? { ...exp, description: editValue }
+          : exp
+      );
+      setExpenses(updatedExpenses);
+
+      // Clear editing state
+      setEditingExpense(null);
+      setEditValue('');
+    } catch (error) {
+      console.error('Failed to update description:', error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingExpense(null);
+    setEditValue('');
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    
+    try {
+      // First try parsing as ISO string
+      let date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        // Try parsing YY-MM-DD format (e.g., "24-07-15")
+        if (dateString.match(/^\d{2}-\d{2}-\d{2}$/)) {
+          const [yy, mm, dd] = dateString.split('-');
+          date = new Date(2000 + parseInt(yy), parseInt(mm) - 1, parseInt(dd));
+        } else {
+          // Try parsing MM/DD/YYYY format
+          const parts = dateString.split('/');
+          if (parts.length === 3) {
+            date = new Date(parts[2], parts[0] - 1, parts[1]);
+          }
+        }
+      }
+      
+      // If we have a valid date, format it consistently
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+      
+      // If all parsing fails, return the original string
+      return dateString;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateString;
+    }
+  };
+
   return (
     <div className="h-screen bg-[#121212] text-white flex flex-col md:flex-row">
       {/* Sidebar */}
@@ -492,32 +575,23 @@ const ExpenseTracker = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 h-[calc(100vh-4rem)] md:h-screen bg-gradient-to-b from-gray-900 to-[#121212]">
         {/* Header */}
-        <header className="bg-transparent backdrop-blur-lg border-b border-gray-800 p-4 sticky top-0 z-10">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold text-white">
+        <header className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 border-b border-border">
+          <div className="container flex h-14 max-w-screen-2xl items-center">
+            <div className="mr-4 hidden md:flex">
+              <h2 className="text-lg font-semibold">
                 {currentView === 'active' && 'Active Expenses'}
                 {currentView === 'missing' && 'Missing Receipts'}
                 {currentView === 'submitted' && 'Submitted Expenses'}
                 {currentView === 'completed' && 'Completed Reports'}
               </h2>
-              {currentView === 'active' && (
-                <button
-                  onClick={downloadAllReceipts}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#1DB954] text-white rounded-full 
-                    hover:bg-[#1ed760] transition-colors text-sm font-medium"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download All Receipts</span>
-                </button>
-              )}
             </div>
-            <div className="flex items-center space-x-2">
-              <MobileSearch onSearch={setSearchQuery} />
+            <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+              <div className="w-full flex-1 md:w-auto md:flex-none">
+                <MobileSearch onSearch={setSearchQuery} />
+              </div>
               <MobileFilters 
                 activeFilters={activeFilters}
-                onFilterChange={(key, value) => 
-                  setActiveFilters(prev => ({ ...prev, [key]: value }))}
+                onFilterChange={(key, value) => setActiveFilters(prev => ({ ...prev, [key]: value }))}
               />
             </div>
           </div>
@@ -764,9 +838,9 @@ const ExpenseTracker = () => {
                                   onChange={(e) => setEditValue(e.target.value)}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
-                                      handleDescriptionUpdate(expense.id, editValue);
+                                      handleSaveDescription(expense.id);
                                     } else if (e.key === 'Escape') {
-                                      setEditingExpense(null);
+                                      handleCancelEdit();
                                     }
                                   }}
                                   className="flex-1 bg-gray-800 text-white px-3 py-1.5 rounded-lg 
@@ -775,14 +849,14 @@ const ExpenseTracker = () => {
                                   autoFocus
                                 />
                                 <button
-                                  onClick={() => handleDescriptionUpdate(expense.id, editValue)}
+                                  onClick={() => handleSaveDescription(expense.id)}
                                   className="px-3 py-1.5 bg-[#1DB954] text-white rounded-lg 
                                     hover:bg-[#1ed760] transition-colors"
                                 >
                                   Save
                                 </button>
                                 <button
-                                  onClick={() => setEditingExpense(null)}
+                                  onClick={handleCancelEdit}
                                   className="px-3 py-1.5 bg-gray-800 text-gray-300 rounded-lg 
                                     hover:bg-gray-700 transition-colors"
                                 >
@@ -791,10 +865,7 @@ const ExpenseTracker = () => {
                               </div>
                             ) : (
                               <div 
-                                onClick={() => {
-                                  setEditingExpense(expense.id);
-                                  setEditValue(expense.description || '');
-                                }}
+                                onClick={() => handleStartEdit(expense)}
                                 className="text-gray-300 min-h-[1.5rem] cursor-pointer 
                                   hover:bg-gray-800 rounded px-2 py-1 -mx-2 transition-colors"
                               >
@@ -924,9 +995,9 @@ const ExpenseTracker = () => {
                                       onChange={(e) => setEditValue(e.target.value)}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
-                                          handleDescriptionUpdate(expense.id, editValue);
+                                          handleSaveDescription(expense.id);
                                         } else if (e.key === 'Escape') {
-                                          setEditingExpense(null);
+                                          handleCancelEdit();
                                         }
                                       }}
                                       className="flex-1 bg-gray-800 text-white px-3 py-1.5 rounded-lg 
@@ -935,14 +1006,14 @@ const ExpenseTracker = () => {
                                       autoFocus
                                     />
                                     <button
-                                      onClick={() => handleDescriptionUpdate(expense.id, editValue)}
+                                      onClick={() => handleSaveDescription(expense.id)}
                                       className="px-3 py-1.5 bg-[#1DB954] text-white rounded-lg 
                                         hover:bg-[#1ed760] transition-colors"
                                     >
                                       Save
                                     </button>
                                     <button
-                                      onClick={() => setEditingExpense(null)}
+                                      onClick={handleCancelEdit}
                                       className="px-3 py-1.5 bg-gray-800 text-gray-300 rounded-lg 
                                         hover:bg-gray-700 transition-colors"
                                     >
@@ -951,10 +1022,7 @@ const ExpenseTracker = () => {
                                   </div>
                                 ) : (
                                   <div 
-                                    onClick={() => {
-                                      setEditingExpense(expense.id);
-                                      setEditValue(expense.description || '');
-                                    }}
+                                    onClick={() => handleStartEdit(expense)}
                                     className="text-gray-300 min-h-[1.5rem] cursor-pointer 
                                       hover:bg-gray-800 rounded px-2 py-1 -mx-2 transition-colors"
                                   >

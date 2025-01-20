@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
-import { Receipt, FileText, Upload, Download, CheckCircle, AlertCircle, AlertTriangle } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { Receipt, FileText, Upload, Download, CheckCircle, AlertCircle, AlertTriangle, Moon, Sun } from 'lucide-react';
 import { Button } from './ui/Button';
 import { cn } from '@/lib/utils';
 import { UploadModal } from './UploadModal';
+import { useTheme } from 'next-themes';
 
 const tabs = [
   { 
@@ -40,6 +41,12 @@ export function Sidebar({ expenses = [], activeTab, onTabChange, className }) {
   const fileInputRef = useRef(null);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Calculate totals
   const totalAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
@@ -96,23 +103,47 @@ export function Sidebar({ expenses = [], activeTab, onTabChange, className }) {
     event.target.value = '';
   };
 
+  // Render theme toggle button only after mounting to prevent hydration mismatch
+  const renderThemeToggle = () => {
+    if (!mounted) return null;
+
+    return (
+      <button 
+        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+      >
+        {theme === 'dark' ? (
+          <>
+            <Sun className="w-5 h-5 shrink-0" />
+            <span>Light Mode</span>
+          </>
+        ) : (
+          <>
+            <Moon className="w-5 h-5 shrink-0" />
+            <span>Dark Mode</span>
+          </>
+        )}
+      </button>
+    );
+  };
+
   return (
-    <div className={cn("flex flex-col h-full text-white/80", className)}>
+    <div className={cn("flex flex-col h-full bg-card", className)}>
       {showUploadModal && (
         <UploadModal onClose={() => setShowUploadModal(false)} />
       )}
 
       {/* Logo */}
-      <div className="flex items-center gap-2 p-4">
-        <Receipt className="w-6 h-6 text-[#1DB954]" />
-        <h1 className="text-xl font-semibold text-white">Expenses</h1>
+      <div className="flex items-center gap-2 p-4 border-b border-border">
+        <Receipt className="w-6 h-6 text-primary" />
+        <h1 className="text-xl font-semibold">Expenses</h1>
       </div>
 
       {/* Total Amount Card */}
       <div className="px-3 py-4">
-        <div className="p-4 rounded-lg bg-[#282828]">
-          <p className="text-sm text-white/60">Total Amount</p>
-          <p className="text-2xl font-bold text-[#1DB954]">
+        <div className="p-4 rounded-lg bg-secondary">
+          <p className="text-sm text-muted-foreground">Total Amount</p>
+          <p className="text-2xl font-bold text-primary">
             ${Math.abs(totalAmount).toFixed(2)}
           </p>
         </div>
@@ -125,10 +156,10 @@ export function Sidebar({ expenses = [], activeTab, onTabChange, className }) {
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             className={cn(
-              "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+              "sidebar-item",
               activeTab === tab.id 
-                ? "bg-[#282828] text-white" 
-                : "text-white/60 hover:text-white hover:bg-[#282828]"
+                ? "sidebar-item-active" 
+                : "sidebar-item-inactive"
             )}
           >
             <tab.icon className="w-5 h-5 shrink-0" />
@@ -136,7 +167,7 @@ export function Sidebar({ expenses = [], activeTab, onTabChange, className }) {
             {tab.count !== null && (
               <span className={cn(
                 "text-sm font-medium",
-                tab.badge || "text-white/60"
+                tab.badge || "text-muted-foreground"
               )}>
                 {tab.count}
               </span>
@@ -148,14 +179,14 @@ export function Sidebar({ expenses = [], activeTab, onTabChange, className }) {
       {/* Actions */}
       <div className="p-3 space-y-2">
         <button 
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-[#282828] transition-colors"
+          className="sidebar-item sidebar-item-inactive"
           onClick={() => setShowUploadModal(true)}
         >
           <Upload className="w-5 h-5 shrink-0" />
           <span>Upload CSV</span>
         </button>
         <button 
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-[#282828] transition-colors"
+          className="sidebar-item sidebar-item-inactive"
           onClick={() => {/* Handle export */}}
         >
           <Download className="w-5 h-5 shrink-0" />
@@ -163,26 +194,32 @@ export function Sidebar({ expenses = [], activeTab, onTabChange, className }) {
         </button>
       </div>
 
+      {/* Theme Toggle */}
+      <div className="p-3 border-t border-border">
+        {renderThemeToggle()}
+      </div>
+
       {/* User Section */}
-      <div className="p-3 border-t border-white/[0.06]">
-        <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-[#282828] transition-colors">
-          <div className="w-8 h-8 rounded-full bg-[#1DB954] flex items-center justify-center text-black font-medium">
+      <div className="p-3 border-t border-border">
+        <button className="sidebar-item sidebar-item-inactive">
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
             BK
           </div>
           <div className="flex-1 text-left">
-            <div className="font-medium text-white">Brian Kaplan</div>
-            <div className="text-sm text-white/60">View Profile</div>
+            <div className="font-medium">Brian Kaplan</div>
+            <div className="text-sm text-muted-foreground">View Profile</div>
           </div>
         </button>
       </div>
 
       {/* Upload Status */}
       {uploadStatus && (
-        <div className={`mt-4 p-4 rounded-lg ${
-          uploadStatus.type === 'loading' ? 'bg-blue-500/10 text-blue-400' :
-          uploadStatus.type === 'success' ? 'bg-green-500/10 text-green-400' :
-          'bg-red-500/10 text-red-400'
-        }`}>
+        <div className={cn(
+          "mt-4 p-4 rounded-lg",
+          uploadStatus.type === 'loading' && "bg-muted text-muted-foreground",
+          uploadStatus.type === 'success' && "status-badge-success",
+          uploadStatus.type === 'error' && "status-badge-error"
+        )}>
           <p className="text-sm">{uploadStatus.message}</p>
         </div>
       )}
